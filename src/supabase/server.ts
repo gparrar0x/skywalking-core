@@ -1,10 +1,11 @@
 /**
- * Supabase server client factory (SSR + cookies).
+ * Supabase server client factories (SSR + cookies).
  *
- * Use in Server Components and API Routes.
- * Respects RLS policies based on the authenticated user session.
+ * createClient()                — Server Components (uses next/headers cookies()).
+ * createClientFromRequest(req)  — Route Handlers (parses Cookie header directly).
  *
- * Requires: next/headers (Next.js 15+)
+ * Both respect RLS policies based on the authenticated user session.
+ *
  * Env: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
  *
  * @example Server Component
@@ -16,11 +17,34 @@
  *   const { data } = await supabase.from('table').select('*')
  * }
  * ```
+ *
+ * @example Route Handler
+ * ```ts
+ * import { createClientFromRequest } from '@skywalking/core/supabase/server'
+ *
+ * export async function GET(request: Request) {
+ *   const supabase = createClientFromRequest(request)
+ *   const { data } = await supabase.from('table').select('*')
+ * }
+ * ```
  */
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+function parseCookieHeader(header: string): { name: string; value: string }[] {
+  if (!header) return []
+  return header.split(';').map((pair) => {
+    const idx = pair.indexOf('=')
+    if (idx === -1) return { name: pair.trim(), value: '' }
+    return { name: pair.slice(0, idx).trim(), value: pair.slice(idx + 1).trim() }
+  })
+}
+
+/**
+ * Server Component client — uses next/headers cookies().
+ * Do NOT use in Route Handlers on Vercel (may hang due to AsyncLocalStorage).
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createClient<TDB = any>() {
   const cookieStore = await cookies()
@@ -41,6 +65,31 @@ export async function createClient<TDB = any>() {
           } catch {
             // Called from a Server Component — ignored when middleware handles session refresh.
           }
+        },
+      },
+    },
+  )
+}
+
+/**
+ * Route Handler client — parses cookies from the Request object directly.
+ * Bypasses next/headers, safe for Vercel serverless functions.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createClientFromRequest<TDB = any>(request: Request) {
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  const parsed = parseCookieHeader(cookieHeader)
+
+  return createServerClient<TDB>(
+    process.env['NEXT_PUBLIC_SUPABASE_URL']!,
+    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY']!,
+    {
+      cookies: {
+        getAll() {
+          return parsed
+        },
+        setAll() {
+          // No-op in Route Handlers — session refresh handled by middleware.
         },
       },
     },

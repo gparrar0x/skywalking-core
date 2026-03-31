@@ -3,7 +3,7 @@
  *
  * Env: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
  *
- * Preset windows (match miicel.io playbook):
+ * Preset windows (match micelio.skyw.app playbook):
  *   strict  → 10 req / 10 s  (checkout, order creation)
  *   signup  → 5 req  / 60 s  (account creation)
  *   light   → 20 req / 10 s  (slug validation, polling)

@@ -30,7 +30,6 @@
  */
 
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 function parseCookieHeader(header: string): { name: string; value: string }[] {
   if (!header) return []
@@ -47,6 +46,7 @@ function parseCookieHeader(header: string): { name: string; value: string }[] {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createClient<TDB = any>() {
+  const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
 
   return createServerClient<TDB>(
